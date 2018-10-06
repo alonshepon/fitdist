@@ -79,7 +79,39 @@ Global Burden of Disease, 2016
 
 <b>Food groups and risk of colorectal cancer.</b> Schwingshackl L, Schwedhelm C, Hoffmann G, Knüppel S, Laure Preterre A, Iqbal K, Bechthold A, De Henauw S, Michels N, Devleesschauwer B, Boeing H, Schlesinger S. Int J Cancer. 2018 May 1;142(9):1748-1758. [doi: 10.1002/ijc.31198](https://doi.org/10.1002/ijc.31198)
 
+<br>
+
+Non-linear dose-response function
+
+[dosresmeta](https://alecri.github.io/software/dosresmeta.html) package
+
+## Motivating Example | Relative risk function
+
+```{r doseresponse, message=FALSE, warning=FALSE}
+source("doseresponse.R")
+par(mar = c(4, 4, 0, 0))
+plot_dosres(fit_crc, crc)
+```
+
 ## Motivating Example | Red meat consumption levels
+
+FFQ and 24h recalls
+
+- Statistical Program to Assess Dietary Exposure (SPADE)
+
+
+Individual observations
+
+- Bootstrap
+
+- Method of moments
+
+- Maximum likelihood
+
+
+Quantiles
+
+- Optimization
 
 
 ## Which distribution?
