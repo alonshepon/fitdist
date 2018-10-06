@@ -1,0 +1,180 @@
+---
+title: "Fitting distributions to dietary exposure data"
+subtitle: "Workshop on Dietary Assessment and Measurement Error"
+author: "<b>brecht.devleesschauwer@sciensano.be</b><br>Department of Epidemiology and Public Health, Sciensano, Belgium"
+date: "October 09, 2018"
+output:
+  ioslides_presentation:
+    widescreen: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Agenda
+
+- Motivating example
+- Individual observations
+- Quantiles
+
+# Motivating Example
+
+## Motivating Example
+
+What is the contribution of current red meat consumption levels to the colorectal cancer disease burden?
+
+## Motivating Example
+
+What is the contribution of current red meat consumption levels to the colorectal cancer disease burden?
+
+**Comparative Risk Assessment**
+
+Systematic evaluation of the changes in burden of disease which would result from modifying the population distribution of exposure to a **theoretical minimum risk exposure distribution (TMRED)** that would imply minimum health loss, keeping all other risk factors unchanged
+
+Calculation of **Population Attributable Fraction**
+
+$$PAF=\frac{\int{P(x)RR(x)dx}-\int{P'(x)RR(x)dx}}{\int{P(x)RR(x)dx}}$$
+
+## Motivating Example
+
+What is the contribution of current red meat consumption levels to the colorectal cancer disease burden?
+
+**Comparative Risk Assessment**
+
+Systematic evaluation of the changes in burden of disease which would result from modifying the population distribution of exposure to a **theoretical minimum risk exposure distribution (TMRED)** that would imply minimum health loss, keeping all other risk factors unchanged
+
+Calculation of **Attributable Burden**
+
+$$AB=B*PAF$$
+
+
+## Motivating Example
+
+What is the contribution of current red meat consumption levels to the colorectal cancer disease burden?
+
+**Data requirements**
+
+- Current disease burden of colorectal cancer
+- Relative risk function
+- Current red meat consumption levels
+- Ideal consumption level (TMREL)
+
+## Motivating Example | Colorectal cancer disease burden {.columns-2}
+
+```{r gbd, out.width = "100%"}
+knitr::include_graphics("gbd.png") 
+```
+
+
+Institute for Health Metrics and Evaluation
+
+Global Burden of Disease, 2016
+
+- 8,863 new cases
+- 3,725 deaths
+- 57,283 DALYs
+
+## Motivating Example | Relative risk function
+
+<b>Food groups and risk of colorectal cancer.</b> Schwingshackl L, Schwedhelm C, Hoffmann G, Knüppel S, Laure Preterre A, Iqbal K, Bechthold A, De Henauw S, Michels N, Devleesschauwer B, Boeing H, Schlesinger S. Int J Cancer. 2018 May 1;142(9):1748-1758. [doi: 10.1002/ijc.31198](https://doi.org/10.1002/ijc.31198)
+
+## Motivating Example | Red meat consumption levels
+
+
+## Which distribution?
+
+Main characteristic: non-negative, continuous
+
+```{r plotdist}
+## plot distributions with same mean and SD
+m <- 200
+s <- 100
+v <- s^2
+b_gamma <- m/v
+a_gamma <- m*b_gamma
+a_lnorm <- log(m)-0.5*log((s/m)^2+1)
+b_lnorm <- sqrt(log((s/m)^2+1))
+a_weibull <- (s/m)^-1.086
+b_weibull <- m / gamma(1+1/a_weibull)
+
+par(mar = c(2, 4, 0, 0))
+curve(dgamma(x, a_gamma, b_gamma),
+      to = 800,
+      col = "red",
+      lwd = 2,
+      xlab = NA,
+      ylab = "density",
+      ylim = c(0, 0.0055))
+curve(dlnorm(x, a_lnorm, b_lnorm),
+      add = TRUE,
+      col = "blue",
+      lwd = 2)
+curve(dweibull(x, a_weibull, b_weibull),
+      add = TRUE,
+      col = "green",
+      lwd = 2)
+legend("topright",
+       legend = c("Gamma", "Log-normal", "Weibull"),
+       col = c("red", "blue", "green"),
+       lty = 1)
+```
+
+## Which distribution? | Excessive zeros
+
+Mixture of Bernoulli process (0/1) and exposure distribution
+
+<br>
+
+**Zero-inflated models**
+
+- Zeros may arise from Bernoulli process or exposure distribution
+- Zeros modelled as "true" and "apparent" zeros
+
+**Hurdle models**
+
+- Zeros only arise from Bernoulli process
+- Zeros and non-zeros modelled as two separate processes
+
+
+## Which distribution? | Excessive zeros
+
+```{r hurdle}
+y <- rgamma(8e5, a_gamma, b_gamma)
+y <- c(rep(0, 2e5), y)
+
+par(mar = c(2, 4, 0, 0))
+plot(density(y, from = 0),
+     col = "red",
+     lwd = 2,
+     main = NA,
+     xlab = NA,
+     xlim = c(0, 800))
+legend("topright",
+       legend = "Bernoulli-Gamma",
+       col = "red",
+       lty = 1)
+```
+
+# Individual observations
+
+## Individual observations | Import data
+
+```{r cars, echo = TRUE}
+#dta <- read.csv("consumption.csv")
+dta <- rpois(250, 250)
+```
+
+## Individual observations | Histogram
+
+```{r hist}
+hist(dta)
+```
+
+## Individual observations | Bootstrap
+
+## Individual observations | Method of moments
+
+## Individual observations | Maximum likelihood
+
+# Quantiles
