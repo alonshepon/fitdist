@@ -210,3 +210,89 @@ hist(dta)
 ## Individual observations | Maximum likelihood
 
 # Quantiles
+
+## Quantiles | Motivating example
+
+EFSA data on red meat consumption in Belgium
+
+```{r}
+dta <-
+  structure(
+    list(
+      mean = 42.79,
+      P5 = 0.00,
+      P10 = 0.00,
+      P50 = 19.05,
+      P95 = 146.80,
+      P975 = 181.40,
+      P99 = 248.75,
+      SD = 65.87
+    ),
+    class = "data.frame",
+    row.names = c(NA,-1L)
+  )
+
+knitr::kable(dta)
+```
+
+## Quantiles | Optimization
+
+Find a distribution that minimizes squared distance between observed and fitted quantiles
+
+```{r, echo=TRUE}
+## calculate sum of squared differences
+f_gamma <-
+function(par, p, q) {
+  qfit <- qgamma(p = p, shape = par[1], rate = par[2])
+  return(sum((qfit - q)^2))
+}
+
+## optimize
+optim_gamma <-
+function(q) {
+  p <- c(0.05, 0.10, 0.50, 0.95, 0.975, 0.99)
+  optim(par = c(1, 1), fn = f_gamma, p = p, q = q)
+}
+
+```
+
+## Quantiles | Optimization {.smaller}
+
+```{r, echo=TRUE, warning=FALSE}
+## find best fit
+fit <- optim_gamma(unlist(dta[1, 2:7]))
+fit
+```
+
+## Quantiles | Optimization
+
+Best fitting Gamma distribution
+
+```{r}
+## plot best fit
+par(mar = c(4, 4, 0, 0))
+curve(dgamma(x, fit$par[1], fit$par[2]),
+      to = 300,
+      lwd = 2,
+      col = "red",
+      xlab = "x",
+      ylab = "density")
+```
+
+## Quantiles | Optimization
+
+Best fitting Gamma distribution
+
+```{r}
+## compare best fit
+dta_fit <-
+  data.frame(mean = fit$par[1] / fit$par[2],
+             P5 = qgamma(0.05, fit$par[1], fit$par[2]),
+             P10 = qgamma(0.10, fit$par[1], fit$par[2]),
+             P50 = qgamma(0.50, fit$par[1], fit$par[2]),
+             P95 = qgamma(0.95, fit$par[1], fit$par[2]),
+             P975 = qgamma(0.975, fit$par[1], fit$par[2]),
+             P99 = qgamma(0.99, fit$par[1], fit$par[2]),
+             SD = sqrt(fit$par[1] / fit$par[2]^2))
+knitr::kable(rbind(observed = dta, fitted = dta_fit))
+```
