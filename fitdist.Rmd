@@ -1,8 +1,8 @@
 ---
 title: "Fitting distributions to dietary exposure data"
 subtitle: "Workshop on Dietary Assessment and Measurement Error"
-author: "<b>brecht.devleesschauwer@sciensano.be</b><br>Department of Epidemiology and Public Health, Sciensano, Belgium"
-date: "October 09, 2018"
+author: "<b>Brecht.Devleesschauwer@Sciensano.be</b>"
+date: "Department of Epidemiology and Public Health, Sciensano, Belgium<br><br>October 09, 2018<br><br>https://github.com/brechtdv/fitdist"
 output:
   ioslides_presentation:
     widescreen: true
@@ -193,21 +193,181 @@ legend("topright",
 ## Individual observations | Import data
 
 ```{r cars, echo = TRUE}
-#dta <- read.csv("consumption.csv")
-dta <- rpois(250, 250)
+dta <- read.csv("consumption.csv")
+hist(dta$x, breaks = 20)
 ```
 
-## Individual observations | Histogram
+## Individual observations | Bootstrap > PAF
 
-```{r hist}
-hist(dta)
+$$PAF=\frac{\sum{P(x)RR(x)}-\sum{P'(x)RR(x)}}{\sum{P(x)RR(x)}}$$
+$$P(x)=1/n$$
+
+```{r, echo=TRUE}
+rr_fun <- rcsplineFunction(attr(fit_crc$model[[2]], "parms"), coef(fit_crc))
+PRR <- mean(exp(rr_fun(dta$x)))
+(PRR - 1) / PRR
+```
+```{r}
+PAF1 <- (PRR - 1) / PRR
 ```
 
-## Individual observations | Bootstrap
+## Individual observations | Fitting distributions
+
+**Motivation**
+
+- Smoothing
+- Generalisability
+- Mathematical ease
+- Computational ease
+
+**Methods**
+
+- Method of moments
+- Maximum likelihood
 
 ## Individual observations | Method of moments
 
+```{r echo=TRUE}
+args(dgamma)
+```
+
+$$E[X] = \alpha/\beta$$
+
+$$Var(X) = \alpha / \beta^2 $$
+
+$$\iff$$
+
+$$\beta = E[X] / Var(X)$$
+
+$$\alpha = E[X] * \beta$$
+
+## Individual observations | Method of moments {.smaller}
+
+```{r echo=TRUE}
+m <- mean(dta$x)
+v <- var(dta$x)
+b <- m / v
+a <- m * b
+c(a, b)
+c(m, a / b)
+c(v, a / b^2)
+```
+
+
+## Individual observations | Method of moments
+
+```{r, message=FALSE, fig.height=5}
+library(fitdistrplus)
+fit_mme <- fitdist(dta$x, dgamma, "mme")
+plot(fit_mme)
+```
+
+## Individual observations | Method of moments > PAF
+
+```{r, echo=TRUE}
+int <-
+  integrate(
+    function(x)
+      dgamma(x, fit_mme$`estimate`[1], fit_mme$`estimate`[2]) *
+      exp(rr_fun(x)),
+    lower = 0,
+    upper = Inf)
+PRR <- int$value
+(PRR - 1) / PRR
+```
+```{r}
+PAF2 <- (PRR - 1) / PRR
+```
+
+
 ## Individual observations | Maximum likelihood
+
+```{r, echo=TRUE, warning=FALSE}
+dta2 <- dta$x
+dta2[dta2 == 0] <- 1e-2
+fit_mle <- fitdistrplus::fitdist(dta2, dgamma, "mle")
+fit_mle
+```
+
+## Individual observations | Maximum likelihood
+
+```{r, fig.height=5}
+plot(fit_mle)
+```
+
+## Individual observations | Maximum likelihood > PAF
+
+```{r, echo=TRUE}
+int <-
+  integrate(
+    function(x)
+      dgamma(x, fit_mle$`estimate`[1], fit_mle$`estimate`[2]) *
+      exp(rr_fun(x)),
+    lower = 0,
+    upper = Inf)
+PRR <- int$value
+(PRR - 1) / PRR
+```
+```{r}
+PAF3 <- (PRR - 1) / PRR
+```
+
+## Individual observations | Maximum likelihood (bis) {.smaller}
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(flexsurv)
+fit_mle2 <-
+  fitdistrplus::fitdist(
+    dta2,
+    dgengamma,
+    "mle",
+    start = function(d)
+      list(
+        mu = mean(d),
+        sigma = sd(d),
+        Q = 0))
+fit_mle2
+```
+
+## Individual observations | Maximum likelihood (bis)
+
+```{r, fig.height=5}
+plot(fit_mle2)
+```
+
+## Individual observations | Maximum likelihood (bis) > PAF
+
+```{r, echo=TRUE}
+int <-
+  integrate(
+    function(x)
+      dgengamma(
+        x,
+        fit_mle2$`estimate`[1],
+        fit_mle2$`estimate`[2],
+        fit_mle2$`estimate`[3]) *
+      exp(rr_fun(x)),
+    lower = 0,
+    upper = Inf)
+PRR <- int$value
+(PRR - 1) / PRR
+```
+```{r}
+PAF4 <- (PRR - 1) / PRR
+```
+
+## Individual observations | Summary
+
+```{r}
+PAF <- c(PAF1, PAF2, PAF3, PAF4)
+out <- data.frame(PAF = round(PAF, 4),
+                  Cases = round(PAF * 8863),
+                  Deaths = round(PAF * 3725),
+                  DALY = round(PAF * 57283))
+rownames(out) <- c("Bootstrap", "MOM", "MLE1", "MLE2")
+knitr::kable(out)
+```
+
 
 # Quantiles
 
@@ -216,7 +376,7 @@ hist(dta)
 EFSA data on red meat consumption in Belgium
 
 ```{r}
-dta <-
+quant <-
   structure(
     list(
       mean = 42.79,
@@ -232,7 +392,47 @@ dta <-
     row.names = c(NA,-1L)
   )
 
-knitr::kable(dta)
+knitr::kable(quant)
+```
+
+## Quantiles | Method of moments
+
+```{r, fig.width=9.5, fig.height=4}
+
+m <- 42.79
+v <- 65.87^2
+b <- m / v
+a <- m * b
+
+p <- c(0.05, 0.10, 0.50, 0.95, 0.975, 0.99)
+
+## plot mme fit
+par(mfrow = c(1, 2))
+par(mar = c(4, 4, 2, 1))
+curve(
+  dgamma(x, a, b),
+  to = 300,
+  lwd = 2,
+  col = "red",
+  xlab = "x",
+  ylab = "density",
+  main = "Density function")
+y <- seq(0, 1, .001)
+plot(
+  qgamma(y, a, b),
+  y,
+  type = "l",
+  lwd = 2,
+  col = "blue",
+  xlim = c(0, 300),
+  xlab = "x",
+  ylab = "F(x)",
+  main = "Cumulative distribution function")
+points(
+  c(0, unlist(quant[1, 2:7])),
+  c(0, p),
+  pch = 16)
+
 ```
 
 ## Quantiles | Optimization
@@ -249,8 +449,7 @@ function(par, p, q) {
 
 ## optimize
 optim_gamma <-
-function(q) {
-  p <- c(0.05, 0.10, 0.50, 0.95, 0.975, 0.99)
+function(p, q) {
   optim(par = c(1, 1), fn = f_gamma, p = p, q = q)
 }
 
@@ -260,7 +459,8 @@ function(q) {
 
 ```{r, echo=TRUE, warning=FALSE}
 ## find best fit
-fit <- optim_gamma(unlist(dta[1, 2:7]))
+p <- c(0.05, 0.10, 0.50, 0.95, 0.975, 0.99)
+fit <- optim_gamma(p = p, q = unlist(quant[1, 2:7]))
 fit
 ```
 
@@ -268,24 +468,50 @@ fit
 
 Best fitting Gamma distribution
 
-```{r}
+```{r, fig.width=9.5, fig.height=4}
 ## plot best fit
-par(mar = c(4, 4, 0, 0))
-curve(dgamma(x, fit$par[1], fit$par[2]),
-      to = 300,
-      lwd = 2,
-      col = "red",
-      xlab = "x",
-      ylab = "density")
+par(mfrow = c(1, 2))
+par(mar = c(4, 4, 2, 1))
+curve(
+  dgamma(x, fit$par[1], fit$par[2]),
+  to = 300,
+  lwd = 2,
+  col = "red",
+  xlab = "x",
+  ylab = "density",
+  main = "Density function")
+y <- seq(0, 1, .005)
+plot(
+  qgamma(y, fit$par[1], fit$par[2]),
+  y,
+  type = "l",
+  lwd = 2,
+  col = "blue",
+  xlim = c(0, 300),
+  xlab = "x",
+  ylab = "F(x)",
+  main = "Cumulative distribution function")
+points(
+  c(0, unlist(quant[1, 2:7])),
+  c(0, p),
+  pch = 16)
+
 ```
 
 ## Quantiles | Optimization
 
-Best fitting Gamma distribution
-
 ```{r}
 ## compare best fit
-dta_fit <-
+quant_mme <-
+  data.frame(mean = a / b,
+             P5 = qgamma(0.05, a, b),
+             P10 = qgamma(0.10, a, b),
+             P50 = qgamma(0.50, a, b),
+             P95 = qgamma(0.95, a, b),
+             P975 = qgamma(0.975, a, b),
+             P99 = qgamma(0.99, a, b),
+             SD = sqrt(a / b^2))
+quant_fit <-
   data.frame(mean = fit$par[1] / fit$par[2],
              P5 = qgamma(0.05, fit$par[1], fit$par[2]),
              P10 = qgamma(0.10, fit$par[1], fit$par[2]),
@@ -294,5 +520,39 @@ dta_fit <-
              P975 = qgamma(0.975, fit$par[1], fit$par[2]),
              P99 = qgamma(0.99, fit$par[1], fit$par[2]),
              SD = sqrt(fit$par[1] / fit$par[2]^2))
-knitr::kable(rbind(observed = dta, fitted = dta_fit))
+knitr::kable(rbind(observed = quant, MOM = quant_mme, optim = quant_fit))
 ```
+
+## Quantiles | Optimization > PAF
+
+```{r}
+int <-
+  integrate(
+    function(x)
+      dgamma(x, a, b) *
+      exp(rr_fun(x)),
+    lower = 0,
+    upper = Inf)
+PRR <- int$value
+PAF1 <- (PRR - 1) / PRR
+
+int <-
+  integrate(
+    function(x)
+      dgamma(x, fit$par[1], fit$par[2]) *
+      exp(rr_fun(x)),
+    lower = 0,
+    upper = Inf)
+PRR <- int$value
+PAF2 <- (PRR - 1) / PRR
+
+PAF <- c(PAF1, PAF2)
+out <- data.frame(PAF = round(PAF, 4),
+                  Cases = round(PAF * 8863),
+                  Deaths = round(PAF * 3725),
+                  DALY = round(PAF * 57283))
+rownames(out) <- c("MOM", "OPTIM")
+knitr::kable(out)
+```
+
+# Thank you
